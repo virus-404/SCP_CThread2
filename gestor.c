@@ -39,10 +39,11 @@ Grau Informàtica
 	int max_threads;
 	int C_stats = 0;
 	int frequence_stats = 5;
-	int finished_thread = -1;
+	int flag_thread = -1;
 	int last_thread_ID = 0;
 	int server_socket;
 
+	int* thread_list;
 	int* socket_list;
 
 	pthread_t* thread_workers;
@@ -82,7 +83,7 @@ int main(int a_argc, char **ap_argv)
 
 	// variables
 		max_threads = atoi(ap_argv[3]);
-  	int serverSocket, clientSocket [max_threads];
+  	int serverSocket, clientSocket [max_threads], control_ID[max_threads];
   	socklen_t clientAddrSize;
 		struct sockaddr_in clientAddr;
 		struct sigaction signalAction;
@@ -99,6 +100,7 @@ int main(int a_argc, char **ap_argv)
 
   // set globals variables
 		socket_list = clientSocket;
+		thread_list = control_ID;
 		thread_workers = threads;
 		gettimeofday(&time0, NULL);
 		pthread_mutex_init(&privileges, NULL);
@@ -117,6 +119,10 @@ int main(int a_argc, char **ap_argv)
 		server_stats->t_session = 0;
 		server_stats->t_get = 0;
 		server_stats->t_put = 0;
+
+		for (int x = 0; x < max_threads; x++) {
+			control_ID[x] = -1;
+		}
 
 	// create service
 		if(!service_create(&serverSocket, strtol(ap_argv[2], (char**)NULL, 10)))
@@ -168,8 +174,11 @@ int main(int a_argc, char **ap_argv)
 						#endif
 					}
 			}
-			if (last_thread_ID < max_threads) {
-					last_thread_ID++;
+			for (int x = 0; x < max_threads; x++) {
+				 if (control_ID[x] == -1) {
+					 last_thread_ID = x;
+					 x = max_threads;
+				 }
 			}
 		}
 	// destroy service
@@ -353,7 +362,7 @@ void* server_execution_service(void * socket)
 	}
 
 	pthread_mutex_lock(&stop);
-	finished_thread = statistics->id;
+	flag_thread = statistics->id;
 	pthread_cond_signal(&cond);
 	pthread_mutex_unlock(&stop);
 
@@ -365,23 +374,23 @@ void* server_execution_service(void * socket)
 void* server_completion_service(void * socket)
 {
 	if (pthread_cond_init(&cond, NULL) != 0) perror("pthread_cond_init() error");
-	struct data *finished_client;
+	struct data* data_client;
 	while (true) {
 		pthread_mutex_lock(&stop);
-		while (finished_thread == -1){
+		while (flag_thread == -1){
 			if (signal_kill == 1) pthread_exit(NULL);
 			pthread_cond_wait(&cond, &stop);
 		}
-		session_destroy(*(socket_list + finished_thread));
+		session_destroy(*(socket_list + flag_thread));
 		sem_post (&semaphore);
-		pthread_join(*(thread_workers + finished_thread), (void*) &finished_client);
-		last_thread_ID = finished_client->id;
+		pthread_join(*(thread_workers + flag_thread), (void*) &data_client);
+		*(thread_list + flag_thread) = -1;
 		flockfile(stdout);
-		show_statistics(*(finished_client));
+		show_statistics(*(data_client));
 		funlockfile(stdout);
-		free(finished_client);
-		close(*(socket_list + finished_thread)); // parent doesn't need this socket}
-		finished_thread = -1;
+		free(data_client);
+		close(*(socket_list + flag_thread)); // parent doesn't need this socket}
+		flag_thread = -1;
 		pthread_mutex_unlock(&stop);
 	}
 	return NULL;
