@@ -1,0 +1,32 @@
+
+
+In C, a void * can be converted to a pointer to an object of a different type without an explicit cast:
+
+void abc(void *a, int b)
+{
+    int *test = a;
+    /* ... */
+
+This doesn't help with writing your function in a more generic way, though.
+
+You can't dereference a void * with converting it to a different pointer type as dereferencing a pointer is obtaining the value of the pointed-to object. A naked void is not a valid type so derefencing a void * is not possible.
+
+Pointer arithmetic is about changing pointer values by multiples of the sizeof the pointed-to objects. Again, because void is not a true type, sizeof(void) has no meaning so pointer arithmetic is not valid on void *. (Some implementations allow it, using the equivalent pointer arithmetic for char *.)
+
+struct data {
+  int id;
+  int n_comands;
+  int n_gets;
+  int n_puts;
+  int b_get;
+  int b_put;
+  int t_session;
+  int t_get;
+  int t_put;
+};
+	sigset_t alarm;
+sigemptyset(&alarm);
+sigaddset(&alarm, SIGUSR1);
+if (pthread_sigmask(SIG_UNBLOCK, &alarm, NULL) != 0) {
+  perror("main(): sigmask");
+}
